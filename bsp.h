@@ -156,13 +156,15 @@
 #define  BSP_GPIOD_MII_RXD1                      DEF_BIT_10
 #define  BSP_GPIOD_MII_RXD2                      DEF_BIT_11
 #define  BSP_GPIOD_MII_RXD3                      DEF_BIT_12
-#define  BSP_GPIOD_LED1                          DEF_BIT_13
-#define  BSP_GPIOD_LED2                          DEF_BIT_14
-#define  BSP_GPIOD_LED3                          DEF_BIT_15
+#define  BSP_GPIOD_LED1                          DEF_BIT_02
+#define  BSP_GPIOD_LED2                          DEF_BIT_03
+#define  BSP_GPIOD_LED3                          DEF_BIT_04
+#define  BSP_GPIOD_LED4                          DEF_BIT_07
 
 #define  BSP_GPIOD_LEDS                         (BSP_GPIOD_LED1 | \
                                                  BSP_GPIOD_LED2 | \
-                                                 BSP_GPIOD_LED3)
+                                                 BSP_GPIOD_LED3 | \
+                                                 BSP_GPIOD_LED4)
 
 
                                                                 /* -------------------- GPIOE PINS -------------------- */
