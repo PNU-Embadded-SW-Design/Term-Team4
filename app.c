@@ -23,22 +23,15 @@
 #include <stdbool.h>
 #define VIRTUALIZAR_SENSOR 0
 #define SystemCoreClock 72000000
-/*#define MIN_RED 6000.0
-#define MAX_RED 35000.0
-#define MIN_GREEN 10000.0
-#define MAX_GREEN 56000.0
-#define MIN_BLUE 10000.0
-#define MAX_BLUE 35000.0*/
 
-#define MIN_RED 2000.0
-#define MAX_RED 12000.0
-#define MIN_GREEN 2000.0
-#define MAX_GREEN 12000.0
-#define MIN_BLUE 2000.0
-#define MAX_BLUE 12000.0
-
- _Bool IC_ColorMode=false;
-u8 calibrate_number;
+//#define MIN_RED 35000.0
+//#define MAX_RED 80000.0
+//#define MIN_GREEN 1000.0
+//#define MAX_GREEN 4000.0
+//#define MIN_BLUE 1000.0
+//#define MAX_BLUE 4000.0
+#define MIN_YELLOW 350
+#define MAX_YELLOW 800
 
 int FreqColor;
 
@@ -105,9 +98,7 @@ int  main (void)
     USART_Configure();
     RCC_Configure();
     GPIO_Configure();
-    //AdcInit();
-   //BSP_IntVectSet(BSP_INT_ID_ADC1_2, JodoISR);
-//  Timer_Configure();
+   Captura_TCS3200_Init();
   
    OSSemCreate(&sem1, "ADC_OS_SEM", 0, &err);
    
@@ -153,10 +144,6 @@ static  void  AppTaskStart (void *p_arg)
 #endif
 
     CPU_IntDisMeasMaxCurReset();
-   
-   /* Initialize the uC/CPU services                   */
-//   BSP_IntVectSet(TIM3_IRQChannel, TIM3_IRQHandler);
-//   BSP_IntEn(TIM3_IRQChannel);
 
    OSTaskCreate((OS_TCB     *)&ColorTCB,
                  (CPU_CHAR   *)"Jodo led off",
@@ -188,7 +175,6 @@ static   void   ColorTask   (void *p_arg)
    CPU_TS ts;
    (void)p_arg;
 
-   Captura_TCS3200_Init();
    
    Set_Filter(Clear);
    Set_Scaling(Scl20);
@@ -197,13 +183,15 @@ static   void   ColorTask   (void *p_arg)
    int colorGreen = 0;
    int colorBlue = 0;
 
+   GPIO_SetBits(GPIOB, GPIO_Pin_5);
+   
    char buffer[80] = {'/0'};
    while (DEF_TRUE) {
       
       USART_SendData(USART1, 'T');
       colorRed = GetColor(Red);
-      colorGreen = GetColor(Green);
-      colorBlue = GetColor(Blue);
+//      colorGreen = GetColor(Green);
+//      colorBlue = GetColor(Blue);
       
       if(VIRTUALIZAR_SENSOR){
          colorRed = colorRed + 10;
@@ -215,16 +203,16 @@ static   void   ColorTask   (void *p_arg)
          if(colorBlue >= 255) colorBlue = 0;
       }
       
-      sprintf(buffer, "Red: %d\r\n", colorRed);
+      sprintf(buffer, "Color: %d\r\n", colorRed);
       SendBuffer(buffer);
       
-      sprintf(buffer, "Green: %d\r\n", colorGreen);
-      SendBuffer(buffer);
-      
-      sprintf(buffer, "Blue: %d\r\n", colorBlue);
-      SendBuffer( buffer);
+//      sprintf(buffer, "Green: %d\r\n", colorGreen);
+//      SendBuffer(buffer);
+//      
+//      sprintf(buffer, "Blue: %d\r\n", colorBlue);
+//      SendBuffer( buffer);
         
-      OSTimeDlyHMSM(0,0,1,0,OS_OPT_TIME_HMSM_STRICT, (OS_ERR) 0);
+      OSTimeDlyHMSM(0,0,1,0,OS_OPT_TIME_HMSM_STRICT, &err);
 
    }
    
@@ -270,127 +258,35 @@ void USART_Configure() {
    USART_Cmd(USART1, ENABLE);
 }
 
-//void   AdcInit(void){
-//   ADC_InitTypeDef ADC_InitStructure;
-//   
-//       // ADC1 Configuration
-//    ADC_InitStructure.ADC_Mode = ADC_Mode_Independent;
-//    ADC_InitStructure.ADC_ScanConvMode = DISABLE;
-//    ADC_InitStructure.ADC_ContinuousConvMode = ENABLE;
-//    ADC_InitStructure.ADC_ExternalTrigConv = ADC_ExternalTrigConv_None;
-//    ADC_InitStructure.ADC_DataAlign = ADC_DataAlign_Right;
-//    ADC_InitStructure.ADC_NbrOfChannel = 1;
-//    ADC_Init(ADC1, &ADC_InitStructure);
-//
-//    ADC_RegularChannelConfig(ADC1, ADC_Channel_8, 1, ADC_SampleTime_239Cycles5);
-//    ADC_ITConfig(ADC1, ADC_IT_EOC, ENABLE); // interrupt enable
-//    ADC_Cmd(ADC1, ENABLE); // ADC1 enable
-//    ADC_ResetCalibration(ADC1);
-//   
-//
-//    while(ADC_GetResetCalibrationStatus(ADC1));
-//
-//    ADC_StartCalibration(ADC1);
-//
-//    while(ADC_GetCalibrationStatus(ADC1));
-//
-//    ADC_SoftwareStartConvCmd(ADC1, ENABLE);
-//}
-
 void   GPIO_Configure(void){
    GPIO_InitTypeDef GPIO_Color;
    GPIO_Color.GPIO_Pin = GPIO_Pin_1 | GPIO_Pin_2 | GPIO_Pin_3 | GPIO_Pin_4;
    GPIO_Color.GPIO_Speed = GPIO_Speed_50MHz;
    GPIO_Color.GPIO_Mode = GPIO_Mode_Out_PP;
    GPIO_Init(GPIOB, &GPIO_Color);
+   
 }
 
 void   RCC_Configure(void){
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC, ENABLE);
    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOD, ENABLE);
-   RCC_APB2PeriphClockCmd(RCC_APB2Periph_TIM1, ENABLE);
-   RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO, ENABLE);
-   RCC_APB2PeriphClockCmd(RCC_APB2Periph_ADC1, ENABLE);
 }
 
-void Timer_Configure(void){
-  
-   TIM_TimeBaseInitTypeDef TIM_TimeBaseInitStructure;
-   
-   /*Activo Clock para el periferico del timer*/
-    RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE);
-   
-   /*Configuro la base de tiempos del timer*/
-   
-   TIM_TimeBaseInitStructure.TIM_Prescaler = 7200; //0.0001s ////84; //Resolucion de 0.001ms = 1us
-                  // TIM_Prescaler = 720, 72 로 했을 때 동작 멈춤
-   TIM_TimeBaseInitStructure.TIM_CounterMode = TIM_CounterMode_Up;
-   TIM_TimeBaseInitStructure.TIM_Period = 5000;// 0.0001s * 10000 = 1s          
-                  //period = 100, 1000일 땐 동작이 멈춤.
-                  // 5000일 땐 잘 작동 (10000보다 주기 좀 더 빨라짐)
-   TIM_TimeBaseInitStructure.TIM_ClockDivision = TIM_CKD_DIV1; //0;
-   
-   TIM_TimeBaseInit(TIM3, &TIM_TimeBaseInitStructure);
-   
-  TIM_OCInitTypeDef TIM_OCInitStructure;
-  TIM_OCStructInit(&TIM_OCInitStructure);
-  TIM_OCInitStructure.TIM_OCMode = TIM_OCMode_PWM1;
-  TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Enable;
-  TIM_OCInitStructure.TIM_Pulse = 500000; //us // 0.5s * 1000000 (TIM3의 주기인 0.5s와 맞춰줌)
-  TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_High;
-  TIM_OC3Init(TIM3, &TIM_OCInitStructure);
-   
-   //CHANNEL 3 -> SUBIDA
-   /* TIM Input Capture Init structure definition */
-   TIM_ICInitTypeDef TIM_ICInitStructure;
-   TIM_ICInitStructure.TIM_Channel = TIM_Channel_1;  // 얘를 TIM_Channel_3 에서 TIM_Channel_1 으로 바꿔주니까 TIM가 잘 동작함.
-   TIM_ICInitStructure.TIM_ICPolarity = TIM_ICPolarity_Rising;
-   TIM_ICInitStructure.TIM_ICSelection = TIM_ICSelection_DirectTI;
-   TIM_ICInitStructure.TIM_ICPrescaler = TIM_ICPSC_DIV1;
-   TIM_ICInitStructure.TIM_ICFilter = 0;
-   
-   TIM_ICInit(TIM3, &TIM_ICInitStructure);
-    TIM_PWMIConfig(TIM3, &TIM_ICInitStructure);
-   
-   
-  /* TIM_IT_CC3: TIM interrupt sources ---------------------------------------------------*/
-   //Configuro interrupcion en el TIM3 CC3
-   TIM_ITConfig(TIM3, TIM_IT_CC3, ENABLE);
-   
-   TIM_Cmd(TIM3, ENABLE);   
-   
-   NVIC_InitTypeDef NVIC_InitStructure;
-    NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
-   //Configurar interrupcion del Channel 4 (BAJADA) del TIM3 -> NVIC
-   NVIC_InitStructure.NVIC_IRQChannel = TIM3_IRQChannel;//TIM3_IRQn;
-   NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-   NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0; 
-            //// NVIC_IRQChannelPreemptionPriority을 0에서 2로 조정 -> '1', '5'의 출력이 좀 더 주기에 맞게 고르게 출력이 됨??
-            //// 근데 2 -> 3으로 조정하니까 또 '1', '5'의 출력 주기가 엉망이 됨????
-            // Timer IRQ Handler에서 if(TIM_GetITStatus(..) != RESET) {} 문을 추가해주고
-            // 이 값을 0으로 수정 -> 잘 동작함.
-   NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
-   
-   NVIC_Init(&NVIC_InitStructure);
-}
 void Captura_TCS3200_Init(void)
-{
-   GPIO_InitTypeDef GPIO_InitStructure;
-   
+{   
    /* GPIOB clock enable */
-//   RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOB, ENABLE);
    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
    /*-------------------------- GPIO Configuration ----------------------------*/
    /* GPIOB Configuration: PB0 como entrada para captura */
+   GPIO_InitTypeDef GPIO_InitStructure;
    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0;
-   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
+//   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
+   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
    GPIO_Init(GPIOB, &GPIO_InitStructure);
-   /* Connect TIM4 pins to AF2 */
-//   GPIO_PinAFConfig(GPIOB, GPIO_PinSource0, GPIO_AF_TIM3); //TIM3 CC3 -> PB0
-
 }
+
 void Set_Filter (u8 mode) //Mode es de tipo enum Filtro
 {
    switch (mode){
@@ -430,74 +326,84 @@ void Set_Scaling (u8 mode) //Mode es de tipo enum Filtro
          break;
    }
 }
-   int Output_Color;
 int GetColor(int set_color) //Funcion que Devuelve RGB de color Rojo (0-255)
 {
-  USART_SendData(USART1, 'C');
-   //char Output_Color;
-   
-   calibrate_number=0;
+    OS_ERR err;
+    USART_SendData(USART1, 'C');
+    
+    char buffer[80] = {'\0'};
+//    sprintf(buffer, "-- Color Type: %d\r\n", set_color);
+//    SendBuffer(buffer);
 
-
-  CPU_INT32U TimeColor=0;   
-
+    CPU_INT32U TimeColor=0;       
+ 
+   Set_Filter(Clear); //Set filter to Color
    Set_Filter(set_color); //Set filter to Color
+ 
+   OSTimeDlyHMSM((CPU_INT16U)0, (CPU_INT16U)0, (CPU_INT16U)0, (CPU_INT32U)100,
+                    OS_OPT_TIME_HMSM_STRICT, 
+                      &err);  
+ 
+    TimeColor = getFrequency();
+    Set_Filter(Clear); //Set filter to default
+    sprintf(buffer, "-- TimeColor: %d\r\n", TimeColor);
+    SendBuffer(buffer);
+   
+//    FreqColor = SystemCoreClock/(TimeColor); //Frequency conversion by means of SystemCoreClock 
+//    sprintf(buffer, "-- FreqColor: %d\r\n", FreqColor);
+//    SendBuffer(buffer);
+   
+//    int Output_Color;
+    //Freq to Color -> Depending of the filter
+//    switch (set_color){
+//      case Red:
+//         Output_Color = (255.0/(MAX_RED-MIN_RED))*(FreqColor-MIN_RED); //MAPEAR FUNCION
+//         break;
+//      
+//      case Green:
+//         Output_Color = (255.0/(MAX_GREEN-MIN_GREEN))*(FreqColor-MIN_GREEN);  //MAPEAR FUNCION
+//         break;
+//      
+//      case Blue: 
+//         Output_Color = (255.0/(MAX_RED-MIN_BLUE))*(FreqColor-MIN_BLUE);  //MAPEAR FUNCION
+//         break;
+//    }
 
-   TimeColor = getFrequency();
-   Set_Filter(Clear); //Set filter to default
-   char buffer[80] = {'\0'};
-      sprintf(buffer, "-- TimeColor: %d\r\n", TimeColor);
-      SendBuffer(buffer);
-   
-   FreqColor = SystemCoreClock/(TimeColor*84); //Frequency conversion by means of SystemCoreClock 
-//   FreqColor= BSP_CPU_ClkFreq()/(TimeColor*168);
-      sprintf(buffer, "-- FreqColor: %d\r\n", FreqColor);
-      SendBuffer(buffer);
-   
-   //Freq to Color -> Depending of the filter
-   switch (set_color){
-      case Red:
-         Output_Color = (255.0/(MAX_RED-MIN_RED))*(FreqColor-MIN_RED); //MAPEAR FUNCION
-         break;
-      
-      case Green:
-         Output_Color = (255.0/(MAX_GREEN-MIN_GREEN))*(FreqColor-MIN_GREEN);  //MAPEAR FUNCION
-         break;
-      
-      case Blue: 
-         Output_Color = (255.0/(MAX_RED-MIN_BLUE))*(FreqColor-MIN_BLUE);  //MAPEAR FUNCION
-         break;
-   }
-   
-   //Constrain Value to MaxRange
-   if (Output_Color > 255) Output_Color = 255;
-   if (Output_Color < 0) Output_Color = 0;
-//   
-   return Output_Color   ; //Mapeo y retorno valor
+    //Constrain Value to MaxRange
+//    if (Output_Color > 255) Output_Color = 255;
+//    if (Output_Color < 0) Output_Color = 0;
+    int Output_Color = 0;
+    if(MIN_YELLOW < TimeColor && TimeColor < MAX_YELLOW) Output_Color = 1;
+    else Output_Color = 0;
+    
+    return Output_Color   ; //Mapeo y retorno valor
 }
 
 
 CPU_INT32U getFrequency() {
-  USART_SendData(USART1, 'F');
-OS_ERR err;
+    USART_SendData(USART1, 'F');
+    OS_ERR err;
  
-  CPU_INT32U TimeColor_H=0;
-  CPU_INT32U TimeColor_L=0;
-  CPU_INT32U local_time=0;
+    CPU_INT32U l_time=0;
+    CPU_INT32U h_time=0;
  // read the time for which the pin is high
 
- OSTimeDlyHMSM((CPU_INT16U)0, (CPU_INT16U)0, (CPU_INT16U)0, (CPU_INT32U)100,
-                    OS_OPT_TIME_HMSM_STRICT, 
-                      &err);  
- while (!(GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_0)));  // wait for the ECHO pin to go high
- 
- while ((GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_0)))    // while the pin is high 
-  {
-  USART_SendData(USART1, 'h');
-  local_time++;   // measure time for which the pin is high
-// OSTimeDlyHMSM((CPU_INT16U)0, (CPU_INT16U)0, (CPU_INT16U)0, (CPU_INT32U)0.001,
-//                    OS_OPT_TIME_HMSM_STRICT, 
-//                      &err);  
-  }
- return local_time;
+   char buffer[80] = {'\0'};
+   
+   while ((GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_0)));
+   while (!(GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_0)));
+   while ((GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_0)))  // wait for the ECHO pin to go high
+   {
+     l_time++;
+   }
+   while (!(GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_0)))    // while the pin is high 
+    {
+      h_time++;
+
+    }
+        sprintf(buffer, "  -- l_time: %d\r\n", l_time);
+        SendBuffer(buffer);
+        sprintf(buffer, "  -- h_time: %d\r\n", h_time);
+        SendBuffer(buffer);
+   return h_time;
 } 
